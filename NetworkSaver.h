@@ -17,7 +17,7 @@ extern "C" {
 class NetworkSaver: public IPersister {
 private:
 	TCPClient client;
-	byte server[4]={192,168,1,13};
+	byte server[4]={192,168,1,18};
 
 public:
 	NetworkSaver();

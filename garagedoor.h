@@ -11,7 +11,8 @@
 
 void checkHold(void);
 void checkPIR(void);
-void cameraReset(void);
-void doTrans(void);
+void checkCam(void);
+void takePicture(void);
+void getTemp(void);
 
 #endif /* GARAGEDOOR_H_ */

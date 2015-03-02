@@ -37,7 +37,7 @@ static const uint8_t TX_EXIT_POWER_SAVING[] = { 0x56, 0x00, 0x3E, 0x03, 0x00, 0x
 static const uint8_t TX_CHANGE_BAUD_RATE[] = { 0x56, 0x00, 0x24, 0x03, 0x01 };
 //static const uint8_t RX_CHANGE_BAUD_RATE[] = { 0x76, 0x00, 0x24, 0x00, 0x00 };
 
-LSY201::LSY201()
+LSY201::LSY201(uint16_t LED)
 {
 	camera=0;
 	persist=0;
@@ -45,6 +45,9 @@ LSY201::LSY201()
 	enabled=false;
 	timer=0;
 	downloadOffset=0;
+	irLED=LED;
+	pinMode(irLED,OUTPUT);
+	ledOff();
 
 	pinMode(A7,OUTPUT);
 
@@ -56,6 +59,16 @@ void t()
 		digitalWrite(A7,LOW);
 	else
 		digitalWrite(A7,HIGH);
+}
+
+void LSY201::ledOn()
+{
+	digitalWrite(irLED,LOW);
+}
+
+void LSY201::ledOff()
+{
+	digitalWrite(irLED,HIGH);
 }
 
 void LSY201::poll()
@@ -173,6 +186,19 @@ void LSY201::tick()
 			enabled=true;
 			currentState=idle;
 		}
+		break;
+
+	//General 60 second timeout on all operations
+	case takingPic:
+	case readingContent:
+	case eatFiveBytes:
+		if(timer++>60)
+		{
+			enabled=false;
+			timer=0;
+			reset();
+		}
+		break;
 	}
 }
 bool LSY201::isEnabled()
@@ -200,6 +226,7 @@ void LSY201::setPersister(IPersister &p)
 
 void LSY201::reset()
 {
+	enabled=false;
 	tx(TX_RESET, sizeof(TX_RESET));
 	currentState=reseting;
 	timer=0;
@@ -209,6 +236,7 @@ void LSY201::takePictureAndSave()
 {
 	if(enabled)
 	{
+		timer=0;
 		while(camera->available())
 			camera->read();
 		tx(TX_TAKE_PICTURE, sizeof(TX_TAKE_PICTURE));
@@ -250,8 +278,10 @@ void LSY201::jpegRead()
 
 void LSY201::setCompressionRatio(uint8_t value)
 {
+
 	if(enabled)
 	{
+		timer=0;
 		tx(TX_SET_COMPRESSION_RATIO, sizeof(TX_SET_COMPRESSION_RATIO));
 		tx(&value, 1);
 
@@ -265,6 +295,7 @@ void LSY201::setImageSize(Size size)
 {
 	if(enabled)
 	{
+		timer=0;
 		tx(TX_SET_IMAGE_SIZE, sizeof(TX_SET_IMAGE_SIZE));
 		tx((uint8_t *) &size, 1);
 
@@ -278,6 +309,7 @@ void LSY201::setBaudRate(unsigned long baud)
 {
 	if(enabled)
 	{
+		timer=0;
 		tx(TX_CHANGE_BAUD_RATE, sizeof(TX_CHANGE_BAUD_RATE));
 
 		uint16_t params = 0xC8AE; /* 9600 */
@@ -331,6 +363,7 @@ void LSY201::simpleCommand(const uint8_t *bytes, uint8_t length)
 {
 	if(enabled)
 	{
+		timer=0;
 		tx(bytes, length);
 		rxPtr=0;
 		currentState=eatFiveBytes;

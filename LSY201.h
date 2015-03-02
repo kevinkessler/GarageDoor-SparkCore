@@ -28,6 +28,7 @@ class LSY201
   uint8_t rxPtr=0;
   uint8_t timer=0;
   uint16_t downloadOffset;
+  uint16_t irLED;
 
 public:
 
@@ -43,7 +44,7 @@ public:
 	  idle,reseting,settling,takingPic,readingContent,closeWait,eatFiveBytes
   };
 
-  LSY201();
+  LSY201(uint16_t irLED);
   void setSerial(Stream &stream);
   void setPersister(IPersister &p);
   void reset();
@@ -58,6 +59,8 @@ public:
   void poll(void);
   void tick(void);
   bool isEnabled(void);
+  void ledOn(void);
+  void ledOff(void);
   uint8_t* getBuffer(void);
   uint8_t getPointer(void);
 

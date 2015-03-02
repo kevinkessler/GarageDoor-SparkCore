@@ -16,6 +16,8 @@
 #include "RGBLed.h"
 #include "LSY201.h"
 #include "NetworkSaver.h"
+#include "OneWire.h"
+#include "DS18B20.h"
 
 SYSTEM_MODE(AUTOMATIC);
 
@@ -25,26 +27,34 @@ SYSTEM_MODE(AUTOMATIC);
 #define HOLD_SWITCH D2
 #define PIR_LINE A0
 #define ALARM D5
+#define CAM_THROTTLE 120
+#define CAM_IR D6
+#define TEMP_PIN A1
 
-volatile uint8_t doorState=CLOSED;
+enum camraPhases {idle,powerup,picture,stop,powerdown };
+
 volatile uint8_t tick=0;
-volatile uint8_t heartbeat=0;
 volatile uint8_t holdFlag=0;
 volatile uint8_t holdCounter=0;
 volatile uint8_t pirCounter=0;
 volatile uint8_t pirTrigger=0;
 uint8_t holdCalled=0;
 uint8_t pirEnabled=0;
-uint8_t pirPrev=0;
+uint8_t camAvailable=1;
+uint8_t camCounter=0;
+uint8_t camPhase=idle;
+uint8_t dsAddr[8];
+uint8_t tempCounter=0;
 
-uint8_t tickCounter=0;
-uint8_t picEnable=0;
+uint16_t pirHits=0;
 
 IntervalTimer secondTimer;
 RGBLed led(A4,A5,A6);
 DoorController door(OPEN_HALL,CLOSED_HALL,DOOR_SWITCH,ALARM);
-LSY201 cam;
+LSY201 cam(CAM_IR);
 NetworkSaver ns;
+
+DS18B20 *ds=NULL;
 
 void second_isr()
 {
@@ -86,6 +96,13 @@ void setup()
 	cam.setSerial(Serial1);
 	cam.setPersister(ns);
 	cam.reset();
+
+	OneWire *search=new OneWire(TEMP_PIN);
+	search->reset();
+
+	if(search->search(dsAddr))
+		ds=new DS18B20(TEMP_PIN,dsAddr);
+
 }
 
 /* This function loops forever --------------------------------------------*/
@@ -99,52 +116,25 @@ void loop()
 //		door.tick();
 		cam.tick();
 //		led.toggle();
+		if(!camAvailable)
+		{
+			camCounter++;
+			if(camCounter>CAM_THROTTLE)
+			{
+				camAvailable=1;
+				camCounter=0;
+			}
+		}
+
+		getTemp();
 		tick=0;
 
-		if(picEnable==3)
-		{
-			if(cam.isEnabled())
-			{
-				Spark.publish("garage-event","Power Save");
-				cam.enterPowerSave();
-				picEnable=4;
-			}
-		}
-
-		if(picEnable==2)
-		{
-			if(cam.isEnabled())
-			{
-				Spark.publish("garage-event","Stop");
-				cam.stopTakingPictures();
-				picEnable=3;
-			}
-		}
-
-		if(picEnable==1)
-		{
-			if (cam.isEnabled())
-			{
-				Spark.publish("garage-event","snap");
-				picEnable=2;
-				cam.takePictureAndSave();
-			}
-		}
-
-		if(picEnable==0)
-			if(cam.isEnabled())
-			{
-				Spark.publish("garage-event","Set Size");
-				picEnable=1;
-				cam.setImageSize(LSY201::Large);
-			}
-		sprintf((char *)buffer,"Ptr=%d",cam.getPointer());
-		Spark.publish("garage-event",(char *)buffer);
 	}
 
 //	led.setColor(door.getLedColor());
+	checkCam();
 //	checkHold();
-//	checkPIR();
+	checkPIR();
 }
 
 
@@ -172,6 +162,9 @@ void checkHold()
 // Check state of PIR motion sensor and trigger light at most once a minute
 void checkPIR()
 {
+	if(pirTrigger)
+		pirHits++;
+
 	if(pirEnabled==0)
 	{
 		if(pirCounter>59)
@@ -187,30 +180,90 @@ void checkPIR()
 		pirCounter=0;
 		if(pirTrigger==1)
 		{
+			char buffer[15];
+
 			pirEnabled=0;
-			Spark.publish("garagedoor-event","MOTION");
+			takePicture();
+
+			sprintf(buffer,"MOTION %d",pirHits);
+			Spark.publish("garagedoor-event",buffer);
+			pirHits=0;
 		}
 	}
 
 
 }
 
-void doTrans()
+void takePicture()
 {
-	byte server[]={192,168,1,13};
-	TCPClient c;
-
-	if(c.connect(server,12345))
+	if(camAvailable)
 	{
-		for (int n=0;n<10;n++)
-			c.write('A'+n);
-
-		delay(100);
-		c.stop();
-	}
-	else
-	{
-		Spark.publish("garage-event","Connect Fail");
+		camPhase=powerup;
+		camAvailable=0;
 	}
 }
 
+void checkCam()
+{
+
+	switch(camPhase)
+	{
+	case idle:
+		break;
+	case powerup:
+		if(cam.isEnabled())
+		{
+			cam.ledOn();
+			Spark.publish("garagedoor-event","PowerUp");
+			cam.exitPowerSave();
+			camPhase=picture;
+		}
+		break;
+	case picture:
+		if(cam.isEnabled())
+		{
+			Spark.publish("garagedoor-event","Picture");
+			cam.takePictureAndSave();
+			camPhase=stop;
+		}
+		break;
+
+	case stop:
+		if(cam.isEnabled())
+		{
+			cam.ledOff();
+			Spark.publish("garagedoor-event","Stop");
+			cam.stopTakingPictures();
+			camPhase=powerdown;
+		}
+		break;
+	case powerdown:
+		if(cam.isEnabled())
+		{
+			Spark.publish("garagedoor-event","PowerDown");
+			cam.enterPowerSave();
+			camPhase=idle;
+		}
+		break;
+	}
+
+}
+
+void getTemp()
+{
+	if(ds!=NULL)
+	{
+		if(++tempCounter==30)
+		{
+
+			tempCounter=0;
+
+			float celsius = ds->getTemperature();
+			float fahrenheit = ds->convertToFahrenheit(celsius);
+
+			char buffer[30];
+			sprintf(buffer,"Temp:%f",fahrenheit);
+			Spark.publish("garagedoor-event",buffer);
+		}
+	}
+}
