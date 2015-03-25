@@ -21,23 +21,11 @@
 
 SYSTEM_MODE(AUTOMATIC);
 
-#define CLOSED_HALL D3
-#define OPEN_HALL D4
-#define DOOR_SWITCH D0
-#define HOLD_SWITCH D2
-#define PIR_LINE A0
-#define ALARM D5
-#define CAM_THROTTLE 120
-#define CAM_IR D6
-#define TEMP_PIN A1
-
-enum camraPhases {idle,powerup,picture,stop,powerdown };
-
 volatile uint8_t tick=0;
 volatile uint8_t holdFlag=0;
 volatile uint8_t holdCounter=0;
 volatile uint8_t pirCounter=0;
-volatile uint8_t pirTrigger=0;
+volatile uint16_t pirTrigger=0;
 uint8_t holdCalled=0;
 uint8_t pirEnabled=0;
 uint8_t camAvailable=1;
@@ -46,10 +34,11 @@ uint8_t camPhase=idle;
 uint8_t dsAddr[8];
 uint8_t tempCounter=0;
 
-uint16_t pirHits=0;
+uint8_t toggle=0;
 
 IntervalTimer secondTimer;
-RGBLed led(A4,A5,A6);
+
+RGBLed led(RED_LED,GREEN_LED,BLUE_LED,HOLD_LED);
 DoorController door(OPEN_HALL,CLOSED_HALL,DOOR_SWITCH,ALARM);
 LSY201 cam(CAM_IR);
 NetworkSaver ns;
@@ -71,7 +60,7 @@ void hold_isr()
 
 void pir_isr()
 {
-	pirTrigger=1;
+	pirTrigger++;
 }
 
 /* This function is called once at start up ----------------------------------*/
@@ -79,7 +68,7 @@ void setup()
 {
 
 	pinMode(HOLD_SWITCH,INPUT);
-	attachInterrupt(HOLD_SWITCH,hold_isr,CHANGE);
+	attachInterrupt(HOLD_SWITCH,hold_isr,RISING);
 
 	secondTimer.begin(second_isr,2000,hmSec,TIMER2);
 
@@ -87,9 +76,7 @@ void setup()
 	led.on();
 
 	pinMode(PIR_LINE,INPUT);
-	attachInterrupt(PIR_LINE,pir_isr,CHANGE);
-
-	pirEnabled=1;
+	attachInterrupt(PIR_LINE,pir_isr,RISING);
 
 	Serial1.begin(38400);
 
@@ -108,14 +95,13 @@ void setup()
 /* This function loops forever --------------------------------------------*/
 void loop()
 {
-	uint8_t buffer[33];
-//	door.poll();
+	door.poll();
 	cam.poll();
 	if(tick>0)
 	{
-//		door.tick();
+		door.tick();
 		cam.tick();
-//		led.toggle();
+		led.toggle();
 		if(!camAvailable)
 		{
 			camCounter++;
@@ -126,14 +112,16 @@ void loop()
 			}
 		}
 
+
 		getTemp();
 		tick=0;
 
 	}
 
-//	led.setColor(door.getLedColor());
+
+	led.setColor(door.getLedColor());
 	checkCam();
-//	checkHold();
+	checkHold();
 	checkPIR();
 }
 
@@ -162,8 +150,6 @@ void checkHold()
 // Check state of PIR motion sensor and trigger light at most once a minute
 void checkPIR()
 {
-	if(pirTrigger)
-		pirHits++;
 
 	if(pirEnabled==0)
 	{
@@ -177,22 +163,18 @@ void checkPIR()
 	}
 	else
 	{
-		pirCounter=0;
-		if(pirTrigger==1)
+		if(pirTrigger)
 		{
-			char buffer[15];
-
 			pirEnabled=0;
+			pirTrigger=0;
 			takePicture();
-
-			sprintf(buffer,"MOTION %d",pirHits);
-			Spark.publish("garagedoor-event",buffer);
-			pirHits=0;
+			Spark.publish("garagedoor-event","MOTION");
 		}
 	}
-
-
 }
+
+
+
 
 void takePicture()
 {
@@ -251,12 +233,11 @@ void checkCam()
 
 void getTemp()
 {
-	if(ds!=NULL)
+	if(++tempCounter==30)
 	{
-		if(++tempCounter==30)
+		tempCounter=0;
+		if(ds!=NULL)
 		{
-
-			tempCounter=0;
 
 			float celsius = ds->getTemperature();
 			float fahrenheit = ds->convertToFahrenheit(celsius);
@@ -265,5 +246,7 @@ void getTemp()
 			sprintf(buffer,"Temp:%f",fahrenheit);
 			Spark.publish("garagedoor-event",buffer);
 		}
+		else
+			Spark.publish("garagedoor-event","DS Null");
 	}
 }

@@ -7,23 +7,27 @@
 
 #include "RGBLed.h"
 
-RGBLed::RGBLed(uint16_t red, uint16_t green, uint16_t blue) {
+RGBLed::RGBLed(uint16_t red, uint16_t green, uint16_t blue, uint16_t hold) {
 	redPin=red;
 	greenPin=green;
 	bluePin=blue;
+	holdPin=hold;
 
 	pinMode(redPin,OUTPUT);
 	pinMode(greenPin,OUTPUT);
 	pinMode(bluePin,OUTPUT);
+	pinMode(holdPin,OUTPUT);
 
 	off();
 }
 
 void RGBLed::off() {
-	analogWrite(redPin,0);
-	analogWrite(bluePin,0);
-	analogWrite(greenPin,0);
+	analogWrite(redPin,255);
+	analogWrite(bluePin,255);
+	analogWrite(greenPin,255);
+	digitalWrite(holdPin,HIGH);
 	currentState=0;
+
 }
 
 void RGBLed::on() {
@@ -31,6 +35,11 @@ void RGBLed::on() {
 	analogWrite(greenPin,(initialColor>>8 & 0xFF));
 	analogWrite(bluePin,(initialColor&0xFF));
 	currentState=1;
+
+	if(initialColor==LED_BLUE)
+		digitalWrite(holdPin,LOW);
+	else
+		digitalWrite(holdPin,HIGH);
 
 }
 
@@ -53,7 +62,6 @@ void RGBLed::setColor(uint32_t color) {
 		blink=1;
 	else
 		blink=0;
-
 
 }
 

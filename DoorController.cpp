@@ -31,7 +31,9 @@ DoorController::DoorController(uint16_t open, uint16_t closed, uint16_t dSwitch,
 	pinMode(doorSwitch,OUTPUT);
 	digitalWrite(doorSwitch,LOW);
 	pinMode(alarmSwitch,OUTPUT);
-	digitalWrite(alarmSwitch,LOW);
+
+	alarmOff();
+
 
 }
 
@@ -73,6 +75,7 @@ uint32_t DoorController::getLedColor() {
 	}
 
 	return (LED_BLINK | LED_WHITE);
+
 }
 
 void DoorController::setHold() {
@@ -120,19 +123,19 @@ void DoorController::open(void) {
 			return;
 		}
 
-		if(doorTimer<300)
+		if(doorTimer<15) //300
 			forceColor=(LED_BLINK | LED_YELLOW);
 		else
 			forceColor=(LED_BLINK | LED_RED);
 
-		if(doorTimer > 600)
+		if(doorTimer > 30) //600
 		{
 			alarmOff();
 			Spark.publish("garagedoor-event","FORCE-CLOSE");
 			closeDoor();
 			timerFlag=0;
 		}
-		else if(doorTimer>550)
+		else if(doorTimer>25) //550
 			alarmOn();
 
 	}
@@ -192,9 +195,9 @@ void DoorController::closeDoor() {
 }
 
 void DoorController::alarmOn() {
-	digitalWrite(alarmSwitch,HIGH);
+	digitalWrite(alarmSwitch,LOW);
 }
 
 void DoorController::alarmOff() {
-	digitalWrite(alarmSwitch,LOW);
+	digitalWrite(alarmSwitch,HIGH);
 }
