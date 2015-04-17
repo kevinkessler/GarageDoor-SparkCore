@@ -49,7 +49,6 @@ private:
 	void getState(void);
 	void open(void);
 	void closed(void);
-	void closeDoor(void);
 	void alarmOn(void);
 	void alarmOff(void);
 
@@ -63,6 +62,9 @@ public:
 	uint32_t getLedColor(void);
 	void setHold(void);
 	void resetHold(void);
+	int closeDoor(void);
+	int openDoor(void);
+
 };
 
 #ifdef __cplusplus

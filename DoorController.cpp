@@ -184,14 +184,30 @@ void DoorController::getState(){
 	}
 }
 
-void DoorController::closeDoor() {
+int DoorController::closeDoor() {
+
+
+	if(currentState==OPEN) {
+		digitalWrite(doorSwitch,HIGH);
+		delay(500);
+		digitalWrite(doorSwitch,LOW);
+		return 0;
+	}
+
+	return -1;
+}
+
+int DoorController::openDoor() {
 
 
 	if(currentState==CLOSED) {
 		digitalWrite(doorSwitch,HIGH);
 		delay(500);
 		digitalWrite(doorSwitch,LOW);
+		return 0;
 	}
+
+	return -1;
 }
 
 void DoorController::alarmOn() {

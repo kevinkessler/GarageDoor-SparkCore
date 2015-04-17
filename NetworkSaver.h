@@ -17,13 +17,16 @@ extern "C" {
 class NetworkSaver: public IPersister {
 private:
 	TCPClient client;
-	byte server[4]={192,168,1,18};
+	//byte server[4]={192,168,1,18};
+	char server[64];
+	uint16_t port=12345;
 
 public:
 	NetworkSaver();
 	virtual ~NetworkSaver();
 	void store(uint8_t *bytes, uint8_t size);
 	void close();
+	int setServer(String serverAndPort);
 };
 
 #ifdef __cplusplus

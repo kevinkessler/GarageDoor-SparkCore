@@ -63,6 +63,33 @@ void pir_isr()
 	pirTrigger++;
 }
 
+int command(String function)
+{
+	if(function=="picture")
+	{
+		if(camAvailable)
+			takePicture();
+		else
+			return -1;
+	}
+	else if(function=="open")
+	{
+		return door.openDoor();
+	}
+	else if(function=="close")
+	{
+		return door.closeDoor();
+	}
+	else if(function.substring(0,7)=="config~")
+	{
+		return ns.setServer(function.substring(7));
+	}
+	else
+		return -1;
+
+	return 0;
+}
+
 /* This function is called once at start up ----------------------------------*/
 void setup()
 {
@@ -90,6 +117,8 @@ void setup()
 	if(search->search(dsAddr))
 		ds=new DS18B20(TEMP_PIN,dsAddr);
 
+	Spark.function("command",command);
+	Spark.publish("garagedoor-event","CONFIGURE");
 }
 
 /* This function loops forever --------------------------------------------*/
