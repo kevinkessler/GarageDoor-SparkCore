@@ -17,6 +17,10 @@ extern "C" {
 
 enum {OPEN,CLOSED,MOVING,INVALID};
 
+// Door Close timings, all in seconds.  Led turns yellow on door open, then red at DOOR_WARNING_LED, sounds an alarm at DOOR_ALARM_TIME, and them closes at DOOR_CLOSE_TIME
+#define DOOR_WARNING_LED 300	// Time LED changes from Yellow to Red to warn of impending close
+#define DOOR_CLOSE_TIME 600		// Time door is closed
+#define DOOR_ALARM_TIME 550		// Time Alarm is sounded to warn of door close
 
 void hall_isr(void);
 

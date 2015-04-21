@@ -123,19 +123,19 @@ void DoorController::open(void) {
 			return;
 		}
 
-		if(doorTimer<15) //300
+		if(doorTimer<DOOR_WARNING_LED)
 			forceColor=(LED_BLINK | LED_YELLOW);
 		else
 			forceColor=(LED_BLINK | LED_RED);
 
-		if(doorTimer > 30) //600
+		if(doorTimer > DOOR_CLOSE_TIME)
 		{
 			alarmOff();
 			Spark.publish("garagedoor-event","FORCE-CLOSE");
 			closeDoor();
 			timerFlag=0;
 		}
-		else if(doorTimer>25) //550
+		else if(doorTimer>DOOR_ALARM_TIME)
 			alarmOn();
 
 	}

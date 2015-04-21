@@ -74,11 +74,25 @@ int command(String function)
 	}
 	else if(function=="open")
 	{
-		return door.openDoor();
+		//return door.openDoor();
+		digitalWrite(DOOR_SWITCH,HIGH);
+		delay(500);
+		digitalWrite(DOOR_SWITCH,LOW);
+
+		return 0;
 	}
 	else if(function=="close")
 	{
 		return door.closeDoor();
+	}
+	else if(function=="light")
+	{
+
+		digitalWrite(LIGHT_PIN,HIGH);
+		delay(500);
+		digitalWrite(LIGHT_PIN,LOW);
+
+		return 0;
 	}
 	else if(function.substring(0,7)=="config~")
 	{
@@ -104,6 +118,8 @@ void setup()
 
 	pinMode(PIR_LINE,INPUT);
 	attachInterrupt(PIR_LINE,pir_isr,RISING);
+
+	pinMode(LIGHT_PIN,OUTPUT);
 
 	Serial1.begin(38400);
 
