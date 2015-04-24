@@ -94,6 +94,13 @@ int command(String function)
 	{
 		return ns.setServer(function.substring(7));
 	}
+	else if (function=="sense")
+	{
+		char buffer[50];
+		sprintf(buffer,"SENSE~%i",readLight());
+		Spark.publish("garagedoor-event",buffer);
+		return 0;
+	}
 	else
 		return -1;
 
@@ -116,6 +123,7 @@ void setup()
 	attachInterrupt(PIR_LINE,pir_isr,RISING);
 
 	pinMode(LIGHT_PIN,OUTPUT);
+	pinMode(LIGHT_SENSOR,INPUT);
 
 	Serial1.begin(38400);
 
@@ -163,7 +171,7 @@ void loop()
 	led.setColor(door.getLedColor());
 	checkCam();
 	checkHold();
-	checkPIR();
+//	checkPIR();
 }
 
 
@@ -290,4 +298,16 @@ void getTemp()
 		else
 			Spark.publish("garagedoor-event","DS Null");
 	}
+}
+
+uint16_t readLight()
+{
+	cam.ledOn();
+
+	delay(100);
+	uint16_t retval=analogRead(LIGHT_SENSOR);
+
+	//cam.ledOff();
+
+	return retval;
 }
