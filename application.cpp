@@ -74,12 +74,8 @@ int command(String function)
 	}
 	else if(function=="open")
 	{
-		//return door.openDoor();
-		digitalWrite(DOOR_SWITCH,HIGH);
-		delay(500);
-		digitalWrite(DOOR_SWITCH,LOW);
+		return door.openDoor();
 
-		return 0;
 	}
 	else if(function=="close")
 	{
