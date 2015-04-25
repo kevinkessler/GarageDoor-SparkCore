@@ -99,6 +99,7 @@ void DoorController::tick() {
 	}
 
 	doorTimer++;
+
 }
 
 // Private Methods
@@ -106,6 +107,8 @@ void DoorController::open(void) {
 	if(holdFlag)
 		holdState=1;
 
+	// Turn on timerFlag (start countdown for auto close) if the hold button hasn't been pushed, and the door was closed previously (did not previously start to close and bounce back up to open again
+	// because something was blocking the door)
 	if ((!timerFlag)&&(prevPos==CLOSED)&&(!holdState)) {
 		timerFlag=1;
 		doorTimer=0;
@@ -148,6 +151,7 @@ void DoorController::closed(void) {
 	if(!holdFlag)
 		forceColor=0;
 	holdState=0;
+
 	alarmOff();
 }
 

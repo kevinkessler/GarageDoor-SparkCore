@@ -50,6 +50,7 @@ private:
 
 	uint32_t forceColor=0;
 
+
 	void getState(void);
 	void open(void);
 	void closed(void);

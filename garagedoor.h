@@ -22,7 +22,6 @@
 #define RED_LED A4
 #define GREEN_LED A5
 #define BLUE_LED A6
-#define LIGHT_SENSOR A7
 
 #define CAM_THROTTLE 120
 
@@ -33,6 +32,6 @@ void checkPIR(void);
 void checkCam(void);
 void takePicture(void);
 void getTemp(void);
-uint16_t readLight(void);
+void lightOn(void);
 
 #endif /* GARAGEDOOR_H_ */
