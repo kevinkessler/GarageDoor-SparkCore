@@ -23,7 +23,9 @@
 #define GREEN_LED A5
 #define BLUE_LED A6
 
-#define CAM_THROTTLE 120
+#define PIR_THROTTLE 120
+#define CAM_DELAY 5
+#define HEARTBEAT 5*3600
 
 enum camraPhases {idle,powerup,picture,stop,powerdown };
 

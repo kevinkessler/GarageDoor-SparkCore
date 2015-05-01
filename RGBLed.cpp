@@ -50,6 +50,8 @@ void RGBLed::toggle() {
 		else
 			on();
 	}
+	else
+		on();
 
 }
 void RGBLed::setColor(uint32_t color) {

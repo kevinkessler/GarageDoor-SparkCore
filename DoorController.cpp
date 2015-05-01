@@ -59,6 +59,9 @@ void DoorController::poll() {
 
 uint32_t DoorController::getLedColor() {
 
+	if(heartbeatError)
+		return (LED_RED);
+
 	if(forceColor != 0)
 		return forceColor;
 
@@ -78,6 +81,14 @@ uint32_t DoorController::getLedColor() {
 
 }
 
+void DoorController::setErrorCondition() {
+	heartbeatError=true;
+}
+
+void DoorController::resetErrorCondition() {
+	heartbeatError=false;
+}
+
 void DoorController::setHold() {
 	if(holdFlag != 1)
 		Spark.publish("garagedoor-event","HOLD_OPEN");
@@ -93,10 +104,10 @@ void DoorController::resetHold() {
 
 void DoorController::tick() {
 
-	if(++heartbeat==30) {
+/*	if(++heartbeat==30) {
 		Spark.publish("garagedoor-event",doorStrings[currentState]);
 		heartbeat=0;
-	}
+	}*/
 
 	doorTimer++;
 

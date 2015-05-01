@@ -16,7 +16,7 @@ extern "C" {
 
 class NetworkSaver: public IPersister {
 private:
-	TCPClient client;
+	TCPClient *client;
 	//byte server[4]={192,168,1,18};
 	char server[64];
 	uint16_t port=12345;

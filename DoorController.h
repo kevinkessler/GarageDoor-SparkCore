@@ -49,7 +49,7 @@ private:
 	uint8_t prevPos=INVALID;
 
 	uint32_t forceColor=0;
-
+	bool heartbeatError=false;
 
 	void getState(void);
 	void open(void);
@@ -69,6 +69,8 @@ public:
 	void resetHold(void);
 	int closeDoor(void);
 	int openDoor(void);
+	void setErrorCondition();
+	void resetErrorCondition();
 
 };
 

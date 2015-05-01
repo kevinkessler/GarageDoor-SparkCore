@@ -11,7 +11,7 @@
 #include "application.h"
 #include "IPersister.h"
 
-#define CAMERA_CHUNK 64
+#define CAMERA_CHUNK 32
 #ifdef __cplusplus
 extern "C" {
 #endif

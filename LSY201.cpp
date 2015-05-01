@@ -119,7 +119,7 @@ void LSY201::poll()
 
 		while(camera->available())
 		{
-			t();
+			//t();
 			uint8_t b=camera->read();
 			rxBuffer[rxPtr++]=b;
 
@@ -191,6 +191,15 @@ void LSY201::tick()
 	//General 60 second timeout on all operations
 	case takingPic:
 	case readingContent:
+		if(timer++>60)
+		{
+			enabled=false;
+			timer=0;
+			persist->close();
+			reset();
+		}
+		break;
+
 	case eatFiveBytes:
 		if(timer++>60)
 		{

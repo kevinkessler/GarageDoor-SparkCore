@@ -25,12 +25,14 @@ volatile uint8_t tick=0;
 volatile uint8_t holdCounter=0;
 volatile uint8_t pirCounter=0;
 volatile uint16_t pirTrigger=0;
+volatile uint16_t heartbeatTimer;
 uint8_t holdDeBounce=0;
 uint8_t holding=0;
 uint8_t pirEnabled=0;
 uint8_t camAvailable=1;
 uint8_t camCounter=0;
 uint8_t camPhase=idle;
+bool camDelay=0;
 uint8_t dsAddr[8];
 uint8_t tempCounter=0;
 
@@ -49,6 +51,7 @@ void second_isr()
 	tick++;
 	holdCounter++;
 	pirCounter++;
+	heartbeatTimer++;
 }
 
 
@@ -59,6 +62,9 @@ void pir_isr()
 
 int command(String function)
 {
+	door.resetErrorCondition();
+	heartbeatTimer=0;
+
 	if(function=="picture")
 	{
 		if(camAvailable)
@@ -136,19 +142,22 @@ void loop()
 
 		cam.tick();
 		led.toggle();
-		if(!camAvailable)
+
+		if(camDelay)
 		{
-			camCounter++;
-			if(camCounter>CAM_THROTTLE)
+			++camCounter;
+			if(camCounter > CAM_DELAY)
 			{
-				camAvailable=1;
-				camCounter=0;
+				camDelay=false;
+				takePicture();
 			}
 		}
 
-
 		getTemp();
 		tick=0;
+
+		if(heartbeatTimer>HEARTBEAT)
+			door.setErrorCondition();
 
 	}
 
@@ -202,7 +211,7 @@ void checkPIR()
 
 	if(pirEnabled==0)
 	{
-		if(pirCounter>59)
+		if(pirCounter>PIR_THROTTLE)
 		{
 			pirCounter=0;
 			pirEnabled=1;
@@ -220,7 +229,8 @@ void checkPIR()
 			lightOn();
 			pirEnabled=0;
 			pirTrigger=0;
-			takePicture();
+			camDelay=true;
+			camCounter=0;
 			pirCounter=0;
 			Spark.publish("garagedoor-event","MOTION");
 		}
@@ -280,6 +290,7 @@ void checkCam()
 			cam.enterPowerSave();
 			camPhase=idle;
 		}
+		camAvailable=1;
 		break;
 	}
 
@@ -310,4 +321,5 @@ void lightOn()
 	digitalWrite(LIGHT_PIN,HIGH);
 	delay(500);
 	digitalWrite(LIGHT_PIN,LOW);
+	Spark.publish("garagedoor-event","Light");
 }
