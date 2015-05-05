@@ -16,33 +16,26 @@ NetworkSaver::~NetworkSaver() {
 
 }
 
-void NetworkSaver::store(uint8_t *bytes, uint8_t size)
+bool NetworkSaver::store(uint8_t *bytes, uint8_t size)
 {
 	uint8_t retval;
 	char buffer[50];
 
-	if (client==NULL)
-		client=new TCPClient();
-
-	if(!client->connected())
+	if(!client.connected())
 	{
-		int n=0;
-		do
+
+		retval=client.connect(server,port);
+		sprintf(buffer,"Connect to %s:%d %d",server,port,retval);
+		Spark.publish("garagedoor-event",buffer);
+		if(retval!=1)
 		{
-			retval=client->connect(server,port);
-			sprintf(buffer,"Connect to %s:%d %d",server,port,retval);
-			Spark.publish("garagedoor-event",buffer);
-			if(retval==1)
-				break;
-			client->stop();
-			delete client;
-			client=new TCPClient();
-			delay(1000);
-			n++;
-		} while(n<5);
+			client.stop();
+			return false;
+		}
 	}
 
-	client->write(bytes,size);
+	client.write(bytes,size);
+	return true;
 
 }
 
@@ -72,12 +65,9 @@ int NetworkSaver::setServer(String serverPort)
 
 void NetworkSaver::close()
 {
-//	if(client.connected())
-//	{
-		client->stop();
-		delete client;
-		client=NULL;
-		Spark.publish("garagedoor-event","Disconnect");
 
-//	}
+	client.stop();
+
+	Spark.publish("garagedoor-event","Disconnect");
+
 }

@@ -27,6 +27,7 @@ class LSY201
   uint8_t rxBuffer[129];
   uint8_t rxPtr=0;
   uint8_t timer=0;
+  uint8_t storeRetry;
   uint16_t downloadOffset;
   uint16_t irLED;
 
@@ -41,7 +42,7 @@ public:
 
   enum State
   {
-	  idle,reseting,settling,takingPic,readingContent,closeWait,eatFiveBytes
+	  idle,reseting,settling,takingPic,readingContent,storeJpg,closeWait,eatFiveBytes
   };
 
   LSY201(uint16_t irLED);

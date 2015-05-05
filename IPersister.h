@@ -18,7 +18,7 @@ class IPersister
 {
 public:
 	virtual ~IPersister() {}
-	virtual void store(uint8_t *bytes, uint8_t size) =0;
+	virtual bool store(uint8_t *bytes, uint8_t size) =0;
 	virtual void close()=0;
 };
 

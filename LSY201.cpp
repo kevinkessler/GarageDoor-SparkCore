@@ -137,12 +137,30 @@ void LSY201::poll()
 
 				if(currentState!=closeWait)
 				{
-					persist->store(&(rxBuffer[5]),CAMERA_CHUNK);
-					downloadOffset+=CAMERA_CHUNK;
-					jpegRead();
+					currentState=storeJpg;
+					storeRetry=0;
 				}
+
 			}
 		}
+		break;
+
+	// Sometimes TCPClient in the persistence does not connect to server, and it needs a trip back through the main loop to connect again.  This state handles that condition.
+	//  Gives up after 5 tries
+	case storeJpg:
+		if(persist->store(&(rxBuffer[5]),CAMERA_CHUNK))
+		{
+			downloadOffset+=CAMERA_CHUNK;
+			jpegRead();
+		}
+		else
+		{
+			storeRetry++;
+			if(storeRetry>5)
+				jpegRead();
+		}
+
+
 		break;
 
 	case eatFiveBytes:
@@ -185,12 +203,14 @@ void LSY201::tick()
 			persist->close();
 			enabled=true;
 			currentState=idle;
+			reset();
 		}
 		break;
 
 	//General 60 second timeout on all operations
 	case takingPic:
 	case readingContent:
+	case storeJpg:
 		if(timer++>60)
 		{
 			enabled=false;
