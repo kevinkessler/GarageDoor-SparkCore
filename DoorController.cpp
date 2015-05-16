@@ -134,6 +134,7 @@ void DoorController::open(void) {
 			timerFlag=0;
 			forceColor=(LED_BLINK | LED_BLUE);
 			holdFlag=0;
+			alarmOff();
 			return;
 		}
 

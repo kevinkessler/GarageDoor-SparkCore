@@ -72,11 +72,11 @@ int command(String function)
 		else
 			return -1;
 	}
-	else if(function=="open")
+/*	else if(function=="open")
 	{
 		return door.openDoor();
 
-	}
+	}*/
 	else if(function=="close")
 	{
 		return door.closeDoor();
@@ -262,9 +262,16 @@ void checkCam()
 			cam.ledOn();
 			Spark.publish("garagedoor-event","PowerUp");
 			cam.exitPowerSave();
-			camPhase=picture;
+			camPhase=resetBuffer;
 		}
 		break;
+	case resetBuffer:
+		if(cam.isEnabled())
+		{
+			Spark.publish("garagedoor-event","ResetBuffer");
+			cam.stopTakingPictures();
+			camPhase=picture;
+		}
 	case picture:
 		if(cam.isEnabled())
 		{

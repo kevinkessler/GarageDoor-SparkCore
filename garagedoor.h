@@ -27,7 +27,7 @@
 #define CAM_DELAY 5
 #define HEARTBEAT 5*3600
 
-enum camraPhases {idle,powerup,picture,stop,powerdown };
+enum camraPhases {idle,powerup,resetBuffer,picture,stop,powerdown };
 
 void checkHold(void);
 void checkPIR(void);
