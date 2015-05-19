@@ -6,6 +6,13 @@
  *      Author: Kevin
  */
 
+/* Things to do
+ * 1. Refactor into CameraController
+ * 2. Check returned values from camera
+ * 3. Put DEBUG publishes in ifdefs
+ * 4. Take picture before close and after
+ * 5. Send temperature to ThingSpeak
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,6 +33,7 @@ volatile uint8_t holdCounter=0;
 volatile uint8_t pirCounter=0;
 volatile uint16_t pirTrigger=0;
 volatile uint16_t heartbeatTimer;
+volatile uint16_t lightTimer;
 uint8_t holdDeBounce=0;
 uint8_t holding=0;
 uint8_t pirEnabled=0;
@@ -35,6 +43,7 @@ uint8_t camPhase=idle;
 bool camDelay=0;
 uint8_t dsAddr[8];
 uint8_t tempCounter=0;
+bool lightAct=false;
 
 
 IntervalTimer secondTimer;
@@ -52,6 +61,7 @@ void second_isr()
 	holdCounter++;
 	pirCounter++;
 	heartbeatTimer++;
+	lightTimer++;
 }
 
 
@@ -166,6 +176,7 @@ void loop()
 	checkCam();
 	checkHold();
 	checkPIR();
+	checkLight();
 }
 
 
@@ -260,40 +271,31 @@ void checkCam()
 		if(cam.isEnabled())
 		{
 			cam.ledOn();
+#ifdef DEBUG_DOOR
 			Spark.publish("garagedoor-event","PowerUp");
+#endif
 			cam.exitPowerSave();
-			camPhase=resetBuffer;
-		}
-		break;
-	case resetBuffer:
-		if(cam.isEnabled())
-		{
-			Spark.publish("garagedoor-event","ResetBuffer");
-			cam.stopTakingPictures();
 			camPhase=picture;
-		}
-	case picture:
-		if(cam.isEnabled())
-		{
-			Spark.publish("garagedoor-event","Picture");
-			cam.takePictureAndSave();
-			camPhase=stop;
 		}
 		break;
 
-	case stop:
+	case picture:
 		if(cam.isEnabled())
 		{
-			cam.ledOff();
-			Spark.publish("garagedoor-event","Stop");
-			cam.stopTakingPictures();
+#ifdef DEBUG_DOOR
+			Spark.publish("garagedoor-event","Picture");
+#endif
+			led.off();
+			cam.takePictureAndSave();
 			camPhase=powerdown;
 		}
 		break;
+
+
 	case powerdown:
 		if(cam.isEnabled())
 		{
-			Spark.publish("garagedoor-event","PowerDown");
+			Spark.publish("garagedoor-event","PICTURE-SAVED");
 			cam.enterPowerSave();
 			camPhase=idle;
 		}
@@ -323,7 +325,27 @@ void getTemp()
 	}
 }
 
+void checkLight()
+{
+	if(lightAct)
+	{
+		if(lightTimer>LIGHT_TIME)
+		{
+			lightAct=false;
+			lightToggle();
+		}
+
+	}
+}
+
 void lightOn()
+{
+	lightAct=true;
+	lightTimer=0;
+	lightToggle();
+}
+
+void lightToggle()
 {
 	digitalWrite(LIGHT_PIN,HIGH);
 	delay(500);

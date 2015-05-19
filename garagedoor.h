@@ -26,8 +26,10 @@
 #define PIR_THROTTLE 120
 #define CAM_DELAY 5
 #define HEARTBEAT 5*3600
+#define LIGHT_TIME 300
+#define DEBUG_DOOR TRUE
 
-enum camraPhases {idle,powerup,resetBuffer,picture,stop,powerdown };
+enum cameraPhases {idle,powerup,resetBuffer,picture,stop,powerdown,reset };
 
 void checkHold(void);
 void checkPIR(void);
@@ -35,5 +37,7 @@ void checkCam(void);
 void takePicture(void);
 void getTemp(void);
 void lightOn(void);
+void lightToggle(void);
+void checkLight(void);
 
 #endif /* GARAGEDOOR_H_ */

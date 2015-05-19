@@ -20,22 +20,22 @@ static const uint8_t TX_READ_JPEG_FILE_CONTENT[] = { 0x56, 0x00, 0x32, 0x0C, 0x0
 //static const uint8_t RX_READ_JPEG_FILE_CONTENT[] = { 0x76, 0x00, 0x32, 0x00, 0x00 };
 
 static const uint8_t TX_STOP_TAKING_PICTURES[] = { 0x56, 0x00, 0x36, 0x01, 0x03 };
-//static const uint8_t RX_STOP_TAKING_PICTURES[] = { 0x76, 0x00, 0x36, 0x00, 0x00 };
+static const uint8_t RX_STOP_TAKING_PICTURES[] = { 0x76, 0x00, 0x36, 0x00, 0x00 };
 
 static const uint8_t TX_SET_COMPRESSION_RATIO[] = { 0x56, 0x00, 0x31, 0x05, 0x01, 0x01, 0x12, 0x04 };
-//static const uint8_t RX_SET_COMPRESSION_RATIO[] = { 0x76, 0x00, 0x31, 0x00, 0x00 };
+static const uint8_t RX_SET_COMPRESSION_RATIO[] = { 0x76, 0x00, 0x31, 0x00, 0x00 };
 
 static const uint8_t TX_SET_IMAGE_SIZE[] = { 0x56, 0x00, 0x31, 0x05, 0x04, 0x01, 0x00, 0x19 };
-//static const uint8_t RX_SET_IMAGE_SIZE[] = { 0x76, 0x00, 0x31, 0x00, 0x00 };
+static const uint8_t RX_SET_IMAGE_SIZE[] = { 0x76, 0x00, 0x31, 0x00, 0x00 };
 
 static const uint8_t TX_ENTER_POWER_SAVING[] = { 0x56, 0x00, 0x3E, 0x03, 0x00, 0x01, 0x01 };
-//static const uint8_t RX_ENTER_POWER_SAVING[] = { 0x76, 0x00, 0x3E, 0x00, 0x00 };
+static const uint8_t RX_ENTER_POWER_SAVING[] = { 0x76, 0x00, 0x3E, 0x00, 0x00 };
 
 static const uint8_t TX_EXIT_POWER_SAVING[] = { 0x56, 0x00, 0x3E, 0x03, 0x00, 0x01, 0x00 };
-//static const uint8_t RX_EXIT_POWER_SAVING[] = { 0x76, 0x00, 0x3E, 0x00, 0x00 };
+static const uint8_t RX_EXIT_POWER_SAVING[] = { 0x76, 0x00, 0x3E, 0x00, 0x00 };
 
 static const uint8_t TX_CHANGE_BAUD_RATE[] = { 0x56, 0x00, 0x24, 0x03, 0x01 };
-//static const uint8_t RX_CHANGE_BAUD_RATE[] = { 0x76, 0x00, 0x24, 0x00, 0x00
+static const uint8_t RX_CHANGE_BAUD_RATE[] = { 0x76, 0x00, 0x24, 0x00, 0x00 };
 
 LSY201::LSY201(uint16_t LED)
 {
@@ -43,6 +43,7 @@ LSY201::LSY201(uint16_t LED)
 	persist=0;
 	currentState=reseting;
 	enabled=false;
+	respError=false;
 	timer=0;
 	downloadOffset=0;
 	irLED=LED;
@@ -105,6 +106,7 @@ void LSY201::poll()
 		while(camera->available())
 		{
 			rxBuffer[rxPtr++]=camera->read();
+
 			if(rxPtr>4)
 			{
 				rxPtr=0;
@@ -130,12 +132,12 @@ void LSY201::poll()
 					if((rxBuffer[n-1]==0xff)&&(rxBuffer[n]==0xD9))
 					{
 						persist->store(&(rxBuffer[5]),n-4);
-						currentState=closeWait;
 						timer=0;
+						storeStop();
 					}
 				}
 
-				if(currentState!=closeWait)
+				if(currentState!=stopAfterStore)
 				{
 					currentState=storeJpg;
 					storeRetry=0;
@@ -163,15 +165,40 @@ void LSY201::poll()
 
 		break;
 
+	case stopAfterStore:
 	case eatFiveBytes:
 		while(camera->available())
 		{
 			rxBuffer[rxPtr++]=camera->read();
+			if(rxBuffer[rxPtr-1]!=respBuf[rxPtr-1])
+			{
+				respError=true;
+			}
+
+
 			if(rxPtr>4)
 			{
+#ifdef DEBUG_DOOR
+				if(respError)
+				{
+					char buffer[50];
+					sprintf(buffer,"Response Error %x %x %x %x %x",rxBuffer[0],rxBuffer[1],rxBuffer[2],rxBuffer[3],rxBuffer[4]);
+					Spark.publish("garagedoor-event",buffer);
+				}
+#endif
 				rxPtr=0;
-				currentState=idle;
-				enabled=true;
+				if(currentState==stopAfterStore)
+				{
+					timer=0;
+					currentState=closeWait;
+					enabled=false;
+				}
+				else
+				{
+					currentState=idle;
+					enabled=true;
+				}
+				respError=false;
 			}
 		}
 		break;
@@ -203,7 +230,6 @@ void LSY201::tick()
 			persist->close();
 			enabled=true;
 			currentState=idle;
-			reset();
 		}
 		break;
 
@@ -211,6 +237,7 @@ void LSY201::tick()
 	case takingPic:
 	case readingContent:
 	case storeJpg:
+	case stopAfterStore:
 		if(timer++>60)
 		{
 			enabled=false;
@@ -284,6 +311,7 @@ void LSY201::takePictureAndSave()
   return (((uint16_t) readByte()) << 8) | readByte();
 }*/
 
+
 void LSY201::jpegRead()
 {
 	currentState=readingContent;
@@ -304,6 +332,14 @@ void LSY201::jpegRead()
 	  tx(params, sizeof(params));
 }
 
+void LSY201::storeStop()
+{
+	currentState=stopAfterStore;
+	rxPtr=0;
+	timer=0;
+	memcpy(respBuf,RX_STOP_TAKING_PICTURES,5);
+	tx(TX_STOP_TAKING_PICTURES, sizeof(TX_STOP_TAKING_PICTURES));
+}
 
 void LSY201::setCompressionRatio(uint8_t value)
 {
@@ -316,6 +352,7 @@ void LSY201::setCompressionRatio(uint8_t value)
 
 		rxPtr=0;
 		currentState=eatFiveBytes;
+		memcpy(respBuf,RX_SET_COMPRESSION_RATIO,5);
 		enabled=false;
 	}
 }
@@ -330,6 +367,7 @@ void LSY201::setImageSize(Size size)
 
 		rxPtr=0;
 		currentState=eatFiveBytes;
+		memcpy(respBuf,RX_SET_IMAGE_SIZE,5);
 		enabled=false;
 	}
 }
@@ -354,25 +392,26 @@ void LSY201::setBaudRate(unsigned long baud)
 
 		rxPtr=0;
 		currentState=eatFiveBytes;
+		memcpy(respBuf,RX_CHANGE_BAUD_RATE,5);
 		enabled=false;
 	}
 }
 
 void LSY201::stopTakingPictures()
 {
-	simpleCommand(TX_STOP_TAKING_PICTURES, sizeof(TX_STOP_TAKING_PICTURES));
+	simpleCommand(TX_STOP_TAKING_PICTURES, sizeof(TX_STOP_TAKING_PICTURES),RX_STOP_TAKING_PICTURES);
 
 }
 
 void LSY201::enterPowerSave()
 {
-	simpleCommand(TX_ENTER_POWER_SAVING,sizeof(TX_ENTER_POWER_SAVING));
+	simpleCommand(TX_ENTER_POWER_SAVING,sizeof(TX_ENTER_POWER_SAVING),RX_ENTER_POWER_SAVING);
 
 }
 
 void LSY201::exitPowerSave()
 {
-	simpleCommand(TX_EXIT_POWER_SAVING,sizeof(TX_EXIT_POWER_SAVING));
+	simpleCommand(TX_EXIT_POWER_SAVING,sizeof(TX_EXIT_POWER_SAVING),RX_EXIT_POWER_SAVING);
 }
 
 void LSY201::tx(const uint8_t *bytes, uint8_t length)
@@ -388,13 +427,14 @@ void LSY201::tx(const uint8_t *bytes, uint8_t length)
 
 }
 
-void LSY201::simpleCommand(const uint8_t *bytes, uint8_t length)
+void LSY201::simpleCommand(const uint8_t *bytes, uint8_t length,const uint8_t *resp)
 {
 	if(enabled)
 	{
 		timer=0;
 		tx(bytes, length);
 		rxPtr=0;
+		memcpy(respBuf,resp,5);
 		currentState=eatFiveBytes;
 		enabled=false;
 	}

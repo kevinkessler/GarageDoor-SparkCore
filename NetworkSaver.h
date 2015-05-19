@@ -10,6 +10,8 @@
 
 #include "IPersister.h"
 #include "application.h"
+#include "garagedoor.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

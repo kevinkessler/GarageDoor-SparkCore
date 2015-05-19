@@ -25,8 +25,10 @@ bool NetworkSaver::store(uint8_t *bytes, uint8_t size)
 	{
 
 		retval=client.connect(server,port);
+#ifdef DEBUG_DOOR
 		sprintf(buffer,"Connect to %s:%d %d",server,port,retval);
 		Spark.publish("garagedoor-event",buffer);
+#endif
 		if(retval!=1)
 		{
 			client.stop();
@@ -57,8 +59,10 @@ int NetworkSaver::setServer(String serverPort)
 		strcpy(server,serverPort.c_str());
 	}
 
+#ifdef DEBUG_DOOR
 	sprintf(buffer,"Server Set to %s:%d",server,port);
 	Spark.publish("garagedoor-event",buffer);
+#endif
 
 	return 0;
 }
@@ -67,7 +71,7 @@ void NetworkSaver::close()
 {
 
 	client.stop();
-
+#ifdef DEBUG_DOOR
 	Spark.publish("garagedoor-event","Disconnect");
-
+#endif
 }

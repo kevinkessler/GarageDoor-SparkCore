@@ -9,6 +9,7 @@
 #define LSY201_H_
 
 #include "application.h"
+#include "garagedoor.h"
 #include "IPersister.h"
 
 #define CAMERA_CHUNK 32
@@ -24,12 +25,14 @@ class LSY201
   IPersister *persist;
   uint8_t currentState;
   bool enabled;
+  bool respError;
   uint8_t rxBuffer[129];
   uint8_t rxPtr=0;
   uint8_t timer=0;
   uint8_t storeRetry;
   uint16_t downloadOffset;
   uint16_t irLED;
+  uint8_t respBuf[5];
 
 public:
 
@@ -42,7 +45,7 @@ public:
 
   enum State
   {
-	  idle,reseting,settling,takingPic,readingContent,storeJpg,closeWait,eatFiveBytes
+	  idle,reseting,settling,takingPic,readingContent,storeJpg,closeWait,eatFiveBytes,stopAfterStore
   };
 
   LSY201(uint16_t irLED);
@@ -68,8 +71,10 @@ public:
 private:
 
 	void tx(const uint8_t *bytes, uint8_t length);
-	void simpleCommand(const uint8_t *bytes, uint8_t length );
+	void simpleCommand(const uint8_t *bytes, uint8_t length, const uint8_t *resp );
 	void jpegRead(void);
+	void storeStop(void);
+
 
 };
 
