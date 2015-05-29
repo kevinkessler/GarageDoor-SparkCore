@@ -45,7 +45,7 @@ public:
 
   enum State
   {
-	  idle,reseting,settling,takingPic,readingContent,storeJpg,closeWait,eatFiveBytes,stopAfterStore
+	  idle,reseting,settling,takingPic,readingContent,storeJpg,closeWait,eatFiveBytes,stopAfterStore,onDemandRead
   };
 
   LSY201(uint16_t irLED);
@@ -67,6 +67,7 @@ public:
   void ledOff(void);
   uint8_t* getBuffer(void);
   uint8_t getPointer(void);
+  void readJpegFileContent(uint16_t offset);
 
 private:
 

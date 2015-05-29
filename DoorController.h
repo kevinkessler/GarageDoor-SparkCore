@@ -10,12 +10,12 @@
 
 #include "application.h"
 #include "RGBLed.h"
+#include "garagedoor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum {OPEN,CLOSED,MOVING,INVALID};
 
 // Door Close timings, all in seconds.  Led turns yellow on door open, then red at DOOR_WARNING_LED, sounds an alarm at DOOR_ALARM_TIME, and them closes at DOOR_CLOSE_TIME
 #define DOOR_WARNING_LED 300	// Time LED changes from Yellow to Red to warn of impending close
@@ -33,6 +33,7 @@ private:
 	uint16_t closedHall;
 	uint16_t doorSwitch;
 	uint16_t alarmSwitch;
+	uint16_t holdSwitch;
 
 	//Timers
 	uint8_t heartbeat=0;
@@ -51,17 +52,21 @@ private:
 	uint32_t forceColor=0;
 	bool heartbeatError=false;
 
-	void getState(void);
+	uint8_t holdDeBounce=0;
+	uint8_t holding=0;
+	uint8_t holdCounter=0;
+
 	void open(void);
 	void closed(void);
 	void alarmOn(void);
 	void alarmOff(void);
+	void checkHold(void);
 
 	const char * const doorStrings[4]={"OPEN","CLOSED","MOVING","INVALID"};
 
 public:
 
-	DoorController(uint16_t openHall, uint16_t closedHall, uint16_t doorSwitch, uint16_t alarm);
+	DoorController(uint16_t openHall, uint16_t closedHall, uint16_t doorSwitch, uint16_t alarm, uint16_t hold);
 	void poll(void);
 	void tick(void);
 	uint32_t getLedColor(void);
@@ -71,7 +76,7 @@ public:
 	int openDoor(void);
 	void setErrorCondition();
 	void resetErrorCondition();
-
+	uint8_t getState(void);
 };
 
 #ifdef __cplusplus

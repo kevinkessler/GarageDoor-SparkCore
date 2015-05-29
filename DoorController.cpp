@@ -17,11 +17,12 @@ void hall_isr()
 }
 
 // Public Methods
-DoorController::DoorController(uint16_t open, uint16_t closed, uint16_t dSwitch, uint16_t alarm) {
+DoorController::DoorController(uint16_t open, uint16_t closed, uint16_t dSwitch, uint16_t alarm, uint16_t hold) {
 	openHall=open;
 	closedHall=closed;
 	doorSwitch=dSwitch;
 	alarmSwitch = alarm;
+	holdSwitch=hold;
 
 	pinMode(openHall, INPUT);
 	attachInterrupt(openHall,hall_isr,CHANGE);
@@ -31,6 +32,7 @@ DoorController::DoorController(uint16_t open, uint16_t closed, uint16_t dSwitch,
 	pinMode(doorSwitch,OUTPUT);
 	digitalWrite(doorSwitch,LOW);
 	pinMode(alarmSwitch,OUTPUT);
+	pinMode(HOLD_SWITCH,INPUT);
 
 	alarmOff();
 
@@ -55,6 +57,8 @@ void DoorController::poll() {
 		closed();
 		break;
 	}
+
+	checkHold();
 }
 
 uint32_t DoorController::getLedColor() {
@@ -110,6 +114,7 @@ void DoorController::tick() {
 	}*/
 
 	doorTimer++;
+	holdCounter++;
 
 }
 
@@ -170,7 +175,7 @@ void DoorController::closed(void) {
 
 
 
-void DoorController::getState(){
+uint8_t DoorController::getState(){
 	uint8_t status=(digitalRead(openHall)<<1) + (digitalRead(closedHall));
 
 	uint8_t thisState=INVALID;
@@ -198,6 +203,8 @@ void DoorController::getState(){
 		currentState=thisState;
 
 	}
+
+	return thisState;
 }
 
 int DoorController::closeDoor() {
@@ -232,4 +239,39 @@ void DoorController::alarmOn() {
 
 void DoorController::alarmOff() {
 	digitalWrite(alarmSwitch,HIGH);
+}
+// Check State of hold button.  If Door Close timer is already running, stop timer.
+// If not, wait for 30 seconds to see if it starts, then stop it.  Otherwise, reset the hold state.
+void DoorController::checkHold()
+{
+
+	// Debounce so the button must be pushed for 50 * 5ms per loop = .25 second
+	// Will have to be changed when the update the firmware to a faster loop
+	if(!holding)
+	{
+		if(!digitalRead(HOLD_SWITCH))
+		{
+			holdDeBounce++;
+			if(holdDeBounce==50)
+			{
+				holding=true;
+				holdDeBounce=0;
+				setHold();
+				holdCounter=0;
+			}
+		}
+		else
+		{
+			holdDeBounce=0;
+		}
+	}
+
+	if(holding)
+	{
+		if(holdCounter>30) {
+			holding=0;
+			resetHold();
+		}
+	}
+
 }

@@ -11,13 +11,13 @@ static const uint8_t TX_RESET[] = { 0x56, 0x00, 0x26, 0x00 };
 //static const uint8_t RX_RESET[] = { 0x76, 0x00, 0x26, 0x00 };
 
 static const uint8_t TX_TAKE_PICTURE[] = { 0x56, 0x00, 0x36, 0x01, 0x00 };
-//static const uint8_t RX_TAKE_PICTURE[] = { 0x76, 0x00, 0x36, 0x00, 0x00 };
+static const uint8_t RX_TAKE_PICTURE[] = { 0x76, 0x00, 0x36, 0x00, 0x00 };
 
 //static const uint8_t TX_READ_JPEG_FILE_SIZE[] = { 0x56, 0x00, 0x34, 0x01, 0x00 };
 //static const uint8_t RX_READ_JPEG_FILE_SIZE[] = { 0x76, 0x00, 0x34, 0x00, 0x04, 0x00, 0x00 };
 
 static const uint8_t TX_READ_JPEG_FILE_CONTENT[] = { 0x56, 0x00, 0x32, 0x0C, 0x00, 0x0A, 0x00, 0x00 };
-//static const uint8_t RX_READ_JPEG_FILE_CONTENT[] = { 0x76, 0x00, 0x32, 0x00, 0x00 };
+static const uint8_t RX_READ_JPEG_FILE_CONTENT[] = { 0x76, 0x00, 0x32, 0x00, 0x00 };
 
 static const uint8_t TX_STOP_TAKING_PICTURES[] = { 0x56, 0x00, 0x36, 0x01, 0x03 };
 static const uint8_t RX_STOP_TAKING_PICTURES[] = { 0x76, 0x00, 0x36, 0x00, 0x00 };
@@ -106,9 +106,20 @@ void LSY201::poll()
 		while(camera->available())
 		{
 			rxBuffer[rxPtr++]=camera->read();
+			if(rxBuffer[rxPtr-1]!=RX_TAKE_PICTURE[rxPtr-1])
+				respError=true;
 
 			if(rxPtr>4)
 			{
+#ifdef DEBUG_DOOR
+				if(respError)
+				{
+					char buffer[50];
+					sprintf(buffer,"Take Picture Response Error %x %x %x %x %x",rxBuffer[0],rxBuffer[1],rxBuffer[2],rxBuffer[3],rxBuffer[4]);
+					Spark.publish("garagedoor-event",buffer);
+				}
+#endif
+
 				rxPtr=0;
 				downloadOffset=0;
 				jpegRead();
@@ -116,6 +127,19 @@ void LSY201::poll()
 		}
 		break;
 
+	case onDemandRead:
+		while(camera->available())
+		{
+			uint8_t b=camera->read();
+			rxBuffer[rxPtr++]=b;
+
+			if(rxPtr==CAMERA_CHUNK+10)
+			{
+				currentState=idle;
+				enabled=true;
+			}
+		}
+		break;
 
 	case readingContent:
 
@@ -292,6 +316,7 @@ void LSY201::takePictureAndSave()
 {
 	if(enabled)
 	{
+		respError=false;
 		timer=0;
 		while(camera->available())
 			camera->read();
@@ -311,6 +336,31 @@ void LSY201::takePictureAndSave()
   return (((uint16_t) readByte()) << 8) | readByte();
 }*/
 
+void LSY201::readJpegFileContent(uint16_t offset)
+{
+	if(enabled)
+	{
+/*		currentState=onDemandRead;
+		rxPtr=0;
+		tx(TX_READ_JPEG_FILE_CONTENT,sizeof(TX_READ_JPEG_FILE_CONTENT));
+
+		  uint8_t params[] = {
+		    (uint8_t)((offset & 0xFF00) >> 8),
+		    (uint8_t)(offset & 0x00FF),
+		    0x00,
+		    0x00,
+		    0x00,
+		    CAMERA_CHUNK,
+		    0x00,
+		    0x0A
+		  };
+
+		  tx(params, sizeof(params));*/
+		  downloadOffset=0;
+		  enabled=false;
+		  jpegRead();
+	}
+}
 
 void LSY201::jpegRead()
 {

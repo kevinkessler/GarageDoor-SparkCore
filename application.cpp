@@ -21,47 +21,41 @@
 #include "SparkIntervalTimer.h"
 #include "DoorController.h"
 #include "RGBLed.h"
-#include "LSY201.h"
-#include "NetworkSaver.h"
 #include "OneWire.h"
 #include "DS18B20.h"
+#include "CameraController.h"
 
 SYSTEM_MODE(AUTOMATIC);
 
 volatile uint8_t tick=0;
-volatile uint8_t holdCounter=0;
 volatile uint8_t pirCounter=0;
-volatile uint16_t pirTrigger=0;
+volatile uint16_t pirTrigger;
+volatile uint8_t doorMotionTimer;
 volatile uint16_t heartbeatTimer;
 volatile uint16_t lightTimer;
-uint8_t holdDeBounce=0;
-uint8_t holding=0;
 uint8_t pirEnabled=0;
-uint8_t camAvailable=1;
-uint8_t camCounter=0;
-uint8_t camPhase=idle;
-bool camDelay=0;
-uint8_t dsAddr[8];
 uint8_t tempCounter=0;
 bool lightAct=false;
+uint8_t doorPrevState=INVALID;
+uint8_t lightSupression=0;
 
+volatile bool camPic;
 
 IntervalTimer secondTimer;
 
 RGBLed led(RED_LED,GREEN_LED,BLUE_LED,HOLD_LED);
-DoorController door(OPEN_HALL,CLOSED_HALL,DOOR_SWITCH,ALARM);
-LSY201 cam(CAM_IR);
-NetworkSaver ns;
+DoorController door(OPEN_HALL,CLOSED_HALL,DOOR_SWITCH,ALARM,HOLD_SWITCH);
+CameraController *camCtl;
 
 DS18B20 *ds=NULL;
 
 void second_isr()
 {
 	tick++;
-	holdCounter++;
 	pirCounter++;
 	heartbeatTimer++;
 	lightTimer++;
+	doorMotionTimer++;
 }
 
 
@@ -77,10 +71,7 @@ int command(String function)
 
 	if(function=="picture")
 	{
-		if(camAvailable)
-			takePicture();
-		else
-			return -1;
+		return camCtl->takePicture();
 	}
 /*	else if(function=="open")
 	{
@@ -98,7 +89,7 @@ int command(String function)
 	}
 	else if(function.substring(0,7)=="config~")
 	{
-		return ns.setServer(function.substring(7));
+		return camCtl->setSaverServer(function.substring(7));
 	}
 
 	else
@@ -110,8 +101,7 @@ int command(String function)
 /* This function is called once at start up ----------------------------------*/
 void setup()
 {
-
-	pinMode(HOLD_SWITCH,INPUT);
+	uint8_t dsAddr[8];
 
 	secondTimer.begin(second_isr,2000,hmSec,TIMER2);
 
@@ -123,12 +113,7 @@ void setup()
 
 	pinMode(LIGHT_PIN,OUTPUT);
 
-	Serial1.begin(38400);
-
-	cam.setSerial(Serial1);
-	cam.setPersister(ns);
-	cam.reset();
-
+	camCtl=new CameraController(CAM_IR);
 	OneWire *search=new OneWire(TEMP_PIN);
 	search->reset();
 
@@ -144,79 +129,34 @@ void setup()
 void loop()
 {
 
+	// Processes run each loop
 	door.poll();
-	cam.poll();
+	camCtl->poll();
+	led.setColor(door.getLedColor());
+	checkPIR();
+	checkLight();
+
+	// Things to run once a second
 	if(tick>0)
 	{
-		door.tick();
-
-		cam.tick();
-		led.toggle();
-
-		if(camDelay)
-		{
-			++camCounter;
-			if(camCounter > CAM_DELAY)
-			{
-				camDelay=false;
-				takePicture();
-			}
-		}
-
-		getTemp();
 		tick=0;
+
+		door.tick();
+		camCtl->tick();
+		led.toggle();
+		getTemp();
 
 		if(heartbeatTimer>HEARTBEAT)
 			door.setErrorCondition();
 
 	}
 
-
-	led.setColor(door.getLedColor());
-	checkCam();
-	checkHold();
-	checkPIR();
-	checkLight();
 }
 
 
-// Check State of hold button.  If Door Close timer is already running, stop timer.
-// If not, wait for 30 seconds to see if it starts, then stop it.  Otherwise, reset the hold state.
-void checkHold()
-{
 
-	// Debounce so the button must be pushed for 50 * 5ms per loop = .25 second
-	// Will have to be changed when the update the firmware to a faster loop
-	if(!holding)
-	{
-		if(!digitalRead(HOLD_SWITCH))
-		{
-			holdDeBounce++;
-			if(holdDeBounce==50)
-			{
-				holding=true;
-				holdDeBounce=0;
-				door.setHold();
-				holdCounter=0;
-			}
-		}
-		else
-		{
-			holdDeBounce=0;
-		}
-	}
 
-	if(holding)
-	{
-		if(holdCounter>30) {
-			holding=0;
-			door.resetHold();
-		}
-	}
-
-}
-
-// Check state of PIR motion sensor and trigger light if no motion sensed in a minute
+// Check state of PIR motion sensor and trigger light if no motion sensed in the prior minute
 void checkPIR()
 {
 
@@ -240,69 +180,11 @@ void checkPIR()
 			lightOn();
 			pirEnabled=0;
 			pirTrigger=0;
-			camDelay=true;
-			camCounter=0;
+			camCtl->takePictureWithDelay();
 			pirCounter=0;
 			Spark.publish("garagedoor-event","MOTION");
 		}
 	}
-}
-
-
-
-
-void takePicture()
-{
-	if(camAvailable)
-	{
-		camPhase=powerup;
-		camAvailable=0;
-	}
-}
-
-void checkCam()
-{
-
-	switch(camPhase)
-	{
-	case idle:
-		break;
-	case powerup:
-		if(cam.isEnabled())
-		{
-			cam.ledOn();
-#ifdef DEBUG_DOOR
-			Spark.publish("garagedoor-event","PowerUp");
-#endif
-			cam.exitPowerSave();
-			camPhase=picture;
-		}
-		break;
-
-	case picture:
-		if(cam.isEnabled())
-		{
-#ifdef DEBUG_DOOR
-			Spark.publish("garagedoor-event","Picture");
-#endif
-			led.off();
-			cam.takePictureAndSave();
-			camPhase=powerdown;
-		}
-		break;
-
-
-	case powerdown:
-		if(cam.isEnabled())
-		{
-			Spark.publish("garagedoor-event","PICTURE-SAVED");
-			cam.enterPowerSave();
-			camPhase=idle;
-		}
-		camAvailable=1;
-		break;
-	}
-
 }
 
 void getTemp()
@@ -327,6 +209,18 @@ void getTemp()
 
 void checkLight()
 {
+	// Don't turn on the light if the door has moved in the last LIGHT_SUPRESSION_TIME seconds (because the light is already on)
+	if(doorPrevState!=door.getState())
+	{
+		doorPrevState=door.getState();
+		doorMotionTimer=0;
+		lightSupression=1;
+	}
+
+	if((lightSupression==1)&&(doorMotionTimer>LIGHT_SUPRESSION_TIME))
+			lightSupression=0;
+
+	// Turn off the light after LIGHT_TIME seconds
 	if(lightAct)
 	{
 		if(lightTimer>LIGHT_TIME)
@@ -340,9 +234,12 @@ void checkLight()
 
 void lightOn()
 {
-	lightAct=true;
-	lightTimer=0;
-	lightToggle();
+	if(!lightSupression)
+	{
+		lightAct=true;
+		lightTimer=0;
+		lightToggle();
+	}
 }
 
 void lightToggle()
@@ -350,5 +247,7 @@ void lightToggle()
 	digitalWrite(LIGHT_PIN,HIGH);
 	delay(500);
 	digitalWrite(LIGHT_PIN,LOW);
+#ifdef DEBUG_DOOR
 	Spark.publish("garagedoor-event","Light");
+#endif
 }

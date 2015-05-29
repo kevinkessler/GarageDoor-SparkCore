@@ -28,12 +28,11 @@
 #define HEARTBEAT 5*3600
 #define LIGHT_TIME 300
 #define DEBUG_DOOR TRUE
+#define LIGHT_SUPRESSION_TIME 120
 
-enum cameraPhases {idle,powerup,resetBuffer,picture,stop,powerdown,reset };
+enum {OPEN,CLOSED,MOVING,INVALID};
 
-void checkHold(void);
 void checkPIR(void);
-void checkCam(void);
 void takePicture(void);
 void getTemp(void);
 void lightOn(void);
