@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "commandstrings.h"
 #include "application.h"
 #include "garagedoor.h"
 #include "SparkIntervalTimer.h"
@@ -69,27 +70,27 @@ int command(String function)
 	door.resetErrorCondition();
 	heartbeatTimer=0;
 
-	if(function=="picture")
+	if(function==PICTURE_COMMAND)
 	{
 		return camCtl->takePicture();
 	}
-/*	else if(function=="open")
+	else if(function==OPEN_COMMAND)
 	{
 		return door.openDoor();
 
-	}*/
-	else if(function=="close")
+	}
+	else if(function==CLOSE_COMMAND)
 	{
 		return door.closeDoor();
 	}
-	else if(function=="light")
+	else if(function==LIGHT_COMMAND)
 	{
 		lightOn();
 		return 0;
 	}
-	else if(function.substring(0,7)=="config~")
+	else if(function.substring(0,strlen(CONFIG_COMMAND))==CONFIG_COMMAND)
 	{
-		return camCtl->setSaverServer(function.substring(7));
+		return camCtl->setSaverServer(function.substring(strlen(CONFIG_COMMAND)));
 	}
 
 	else

@@ -1,0 +1,18 @@
+/*
+ * commandstrings.h
+ *
+ *  Created on: Aug 6, 2015
+ *      Author: Kevin
+ */
+
+#ifndef COMMANDSTRINGS_H_
+#define COMMANDSTRINGS_H_
+
+#define PICTURE_COMMAND "picture"
+#define CLOSE_COMMAND "close"
+#define OPEN_COMMAND "open"
+#define PICTURE_COMMAND "picture"
+#define LIGHT_COMMAND "light"
+#define CONFIG_COMMAND "config~"
+
+#endif /* COMMANDSTRINGS_H_ */

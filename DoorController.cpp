@@ -43,7 +43,6 @@ void DoorController::poll() {
 	getState();
 
 	if(hallFlag) {
-		getState();
 		Spark.publish("garagedoor-event",doorStrings[currentState]);
 		hallFlag=0;
 	}
@@ -203,6 +202,9 @@ uint8_t DoorController::getState(){
 		currentState=thisState;
 
 	}
+	else
+		// Prevent publishing duplicate events
+		hallFlag=0;
 
 	return thisState;
 }
